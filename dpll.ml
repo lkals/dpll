@@ -55,12 +55,13 @@ let rec contient x l =
       else contient x reste
 
 (*renvoie la liste l sans la negation de x*)
+(*qu° : peut-il y avoir 2 negations ?*)
 let rec mnegation x l lpre=
   match l with
   | [] -> []
   | e::reste -> if -x=e then lpre@reste else mnegation x reste (e::lpre)
 
-
+(*TODO : verifier que List.rev fasse bien ce qu'on demande *)
 let simplifie i clauses = 
 let filtr l = if contient i l then None else Some (mnegation i l [])
 in List.rev (filter_map filtr clauses)
@@ -102,9 +103,13 @@ let () = print_modele (solveur_split coloriage [])
     - si `clauses' contient au moins une clause unitaire, retourne
       le littéral de cette clause unitaire ;
     - sinon, lève une exception `Not_found' *)
+
+exception Not_found
+exception Failure of string
+
 let rec unitaire clauses =
       match clauses with 
-      | [] -> []
+      | [] -> raise Not_found
       | e :: l -> if (List.length e) = 1 then (List.hd e)
       else unitaire l
 
@@ -157,22 +162,40 @@ let rec list_props clauses l=
   | [] -> []
   | c::reste -> list_props reste (list_props_cl c [])@l 
 
-let rec enleve_p x l lpre=
+let rec enleve_p_et_non_p x l lpre=
   match l with
-  | [] -> []
-  | e::reste -> if x=e then lpre@reste else mnegation x reste (e::lpre)
+  | [] -> lpre
+  | e::reste -> if (x=e || -x=e) then enleve_p_et_non_p x reste lpre else enleve_p_et_non_p x reste (e::lpre)
 
-let rec pur clauses = 
+(*let rec pur_pas_bon clauses = 
   let rec aux liste e =
     match liste with
     [] -> true 
-    | f::reste -> if -f=e then false else aux (mnegation f (enleve_p f reste []) []) e 
+    | f::reste -> if -e=f then false else aux reste e 
   in match list_props clauses [] with
   | [] -> 0
-  | g::reste -> if (aux reste g) then g else pur reste 
+  | g::reste -> if (aux reste g) then g else pur_pas_bon (enleve_p_et_non_p g reste []) 
+*)
+
+let rec contient_neg x l =
+  match l with
+  | [] -> false
+  | e::reste -> if -x=e then true
+      else contient_neg x reste
+
+let rec pur clauses = 
+  let rec aux liste =
+    match liste with
+    [] -> raise (Failure "pas de littéral pur")
+    | e::reste -> if not(contient_neg e reste) then e else aux (enleve_p_et_non_p e reste []) 
+  in aux (list_props clauses [])
+
 
 (*  enlever le p et le -p a chauqe p qu'on pracourt*)
-     
+ (*[1,2,3,-1,1,2]
+   [1,2,3,2,1,2]
+   aux (mnegation f (enleve_p f reste []) []) e 
+   *)    
          
 
 
@@ -193,6 +216,13 @@ let rec pur clauses =
 (* solveur_dpll_rec : int list list -> int list -> int list option *)
 let rec solveur_dpll_rec clauses interpretation =
   (* à compléter *)
+  if clauses = [] then Some interpretation else
+  if mem [] clauses then None else
+  (*try unitaire clauses with
+  try pur clauses with*)
+  (*comment choisir p ?*)
+  (*let p = hd (hd clauses) in *)
+  (*solveur_dpll_rec(simplifie p clauses) || solveur_dpll_rec(simplifie -p clauses)*)
   None
 
 (* tests *)
