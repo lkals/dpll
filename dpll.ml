@@ -73,9 +73,13 @@ let rec solveur_split clauses interpretation =
 ;;
 
 (* tests *)
-let () = print_modele (solveur_split systeme [])
-let () = print_modele (solveur_split coloriage [])
-let () = print_modele (solveur_split exemple_7_2 [])
+print_string "tests solveur_split :\n";;
+print_string "censé etre unsat : \n";;
+let () = print_modele (solveur_split systeme []);;
+print_string "censé etre sat coloriage: \n";;
+let () = print_modele (solveur_split coloriage []);;
+print_string "censé etre sat : \n";;
+let () = print_modele (solveur_split exemple_7_2 []);;
 
 (* solveur dpll récursif *)
     
@@ -84,11 +88,11 @@ let () = print_modele (solveur_split exemple_7_2 [])
       le littéral de cette clause unitaire ;
     - sinon, lève une exception `Not_found' *)
 
-exception Not_found
+exception Not_found;;
 
 let rec unitaire clauses =
 	match clauses with 
-	| [] -> 0
+	| [] -> raise Not_found
 	| e :: l -> if (length e) = 1 then (hd e)
 	else unitaire l
 ;;
@@ -98,15 +102,17 @@ let rec unitaire clauses =
       ce littéral ;
     - sinon, lève une exception `Failure "pas de littéral pur"' *)
 
-let rec list_props_cl clause l=
+exception Failure of string;;
+
+(*let rec list_props_cl clause l=
   match clause with
   | [] -> []
-  | e::reste -> list_props_cl reste (e::l);;
+  | e::reste -> list_props_cl reste (e::l);;*)
   
 let rec list_props clauses l=
   match clauses with
   | [] -> []
-  | c::reste -> list_props reste (list_props_cl c [])@l;; 
+  | c::reste -> list_props reste (c)@l;; 
 
 let rec enleve_p_et_non_p x l lpre=
   match l with
@@ -116,28 +122,55 @@ let rec enleve_p_et_non_p x l lpre=
 let rec pur clauses = 
   let rec aux liste =
     match liste with 
-    [] -> 0
+    [] -> raise (Failure "pas de littéral pur")
     | e::reste -> if not(mem (-e) reste) then e else aux (enleve_p_et_non_p e reste []) 
   in aux (list_props clauses []);;
   
-(* solveur_dpll_rec : int list list -> int list -> int list option *)
+
+
 let rec solveur_dpll_rec clauses interpretation =
-	if clauses = [] then Some interpretation
-	else if (mem [] clauses) then None
-	else if (unitaire clauses) != 0 then solveur_dpll_rec (simplifie (unitaire clauses) clauses) ((unitaire clauses)::interpretation)
-	else if (pur clauses) != 0 then solveur_dpll_rec (simplifie (pur clauses) clauses) ((pur clauses)::interpretation)
-	else let e = hd (hd clauses) in 
-	let branche = solveur_dpll_rec (simplifie e clauses) (e::interpretation) in
-	match branche with
-	| None -> solveur_dpll_rec (simplifie (-e) clauses) ((-e)::interpretation)
-	| _ -> branche
+  if clauses = [] then Some interpretation
+	else if mem [] clauses then None else
+    match (try Some (unitaire clauses) 
+  with Not_found -> None)
+with 
+| Some u -> solveur_dpll_rec (simplifie u clauses) (u::interpretation)
+| None -> match (try Some (pur clauses) 
+    with Failure "pas de littéral pur" -> None)
+  with 
+  | Some p -> solveur_dpll_rec (simplifie p clauses) (p::interpretation)
+  | None -> let e = hd (hd clauses) in 
+  let branche = solveur_dpll_rec (simplifie e clauses) (e::interpretation) in
+  match branche with
+  | None -> solveur_dpll_rec (simplifie (-e) clauses) ((-e)::interpretation)
+  | _ -> branche
 ;;
-	
+
 	
 (* tests *)
-let () = print_modele (solveur_dpll_rec systeme [])
-let () = print_modele (solveur_dpll_rec coloriage [])
+print_string "tests solveur_dpll_rec :\n";;
+print_string "censé etre unsat : \n";;
+let () = print_modele (solveur_dpll_rec systeme []);;
+print_string "censé etre sat coloriage: \n";;
+let () = print_modele (solveur_dpll_rec coloriage []);;
+print_string "censé etre sat : \n";;
+let () = print_modele (solveur_dpll_rec exemple_7_2 []);;	
 
-let () = 
+
+(*let () = 
+	let clauses = Dimacs.parse Sys.argv.(1) in
+	print_modele (solveur_dpll_rec clauses [])*)
+
+  let () = 
 	let clauses = Dimacs.parse Sys.argv.(1) in
 	print_modele (solveur_dpll_rec clauses [])
+
+  (*let () = 
+	let clauses = Dimacs.parse Sys.argv.(1) in
+	print_modele (solveur_split clauses [])*)
+
+  (* temps d'execution pour sudoku-9x9-expert.cnf en solveur_dpll_rec : 0,334s *)
+  (* temps d'execution pour sudoku-9x9-expert.cnf en solveur_split : infini *)
+
+  (* temps d'execution pour sudoku-9x9-hard.cnf en solveur_dpll_rec : 0,284s *)
+  (* temps d'execution pour sudoku-9x9-hard.cnf en solveur_split : 29,033s *)
